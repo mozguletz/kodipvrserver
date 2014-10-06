@@ -2,17 +2,19 @@
 Torrent-tv.ru Playlist Downloader Plugin
 http://ip:port/ttvplaylist
 '''
-import re
 import logging
-import urllib2
+import re
 import time
+import urllib2
+
 import gevent
-from modules.PluginInterface import AceProxyPlugin
-from modules.PlaylistGenerator import PlaylistGenerator
+
 import config.torrenttv
+from modules.PlaylistGenerator import PlaylistGenerator
+from modules.PluginInterface import PVRProxyPlugin
 
 
-class Torrenttv(AceProxyPlugin):
+class Torrenttv(PVRProxyPlugin):
 
     # ttvplaylist handler is obsolete
     handlers = ('torrenttv', 'ttvplaylist')
@@ -22,7 +24,7 @@ class Torrenttv(AceProxyPlugin):
     playlist = None
     playlisttime = None
 
-    def __init__(self, AceConfig, AceStuff):
+    def __init__(self, PVRConfig, PVRStuff):
         if config.torrenttv.updateevery:
             gevent.spawn(self.playlistTimedDownloader)
 
@@ -59,14 +61,14 @@ class Torrenttv(AceProxyPlugin):
         # Match playlist with regexp
         matches = re.finditer(r',(?P<name>\S.+) \((?P<group>.+)\)\n(?P<url>^.+$)',
                               Torrenttv.playlist, re.MULTILINE)
-        
+
         add_ts = False
         try:
             if connection.splittedpath[2].lower() == 'ts':
                 add_ts = True
         except:
             pass
-                
+
 
         playlistgen = PlaylistGenerator()
         for match in matches:

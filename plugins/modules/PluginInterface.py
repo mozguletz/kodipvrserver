@@ -10,9 +10,9 @@ See helloworld_plugin_.py for the basic plugin example.
 '''
 
 
-class AceProxyPlugin(object):
+class PVRProxyPlugin(object):
 
-    def __init__(self, AceConfig, AceStuff):
+    def __init__(self, PVRConfig, PVRStuff):
         pass
 
     def handle(self, connection):

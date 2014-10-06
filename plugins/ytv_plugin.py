@@ -4,16 +4,17 @@ http://ip:port/ytv
 '''
 import json
 import logging
-import urllib2
 import time
-from modules.PluginInterface import AceProxyPlugin
-from modules.PlaylistGenerator import PlaylistGenerator
+import urllib2
+
 import config.ytv
+from modules.PlaylistGenerator import PlaylistGenerator
+from modules.PluginInterface import PVRProxyPlugin
 
 
-class Ytv(AceProxyPlugin):
+class Ytv(PVRProxyPlugin):
 
-    handlers = ('ytv', )
+    handlers = ('ytv',)
 
     logger = logging.getLogger('plugin_ytv')
     url = config.ytv.url
@@ -26,8 +27,9 @@ class Ytv(AceProxyPlugin):
             Ytv.playlist = urllib2.urlopen(
                 Ytv.url, timeout=10).read()
             Ytv.playlisttime = int(time.time())
-        except:
+        except Exception as e:
             Ytv.logger.error("Can't download playlist!")
+            Ytv.logger.error(repr(e))
             return False
 
         return True
@@ -73,7 +75,7 @@ class Ytv(AceProxyPlugin):
             if groupid and groups.get(groupid):
                 channel['group'] = groups.get(groupid)
             playlistgen.addItem(channel)
-        
+
         exported = playlistgen.exportm3u(hostport, add_ts)
         exported = exported.encode('utf-8')
         connection.wfile.write(exported)

@@ -3,15 +3,15 @@ Simple statistics plugin
 
 To use it, go to http://127.0.0.1:8000/stat
 '''
-from modules.PluginInterface import AceProxyPlugin
+from modules.PluginInterface import PVRProxyPlugin
 
 
-class Stat(AceProxyPlugin):
-    handlers = ('stat', )
+class Stat(PVRProxyPlugin):
+    handlers = ('stat',)
 
-    def __init__(self, AceConfig, AceStuff):
-        self.config = AceConfig
-        self.stuff = AceStuff
+    def __init__(self, PVRConfig, PVRStuff):
+        self.config = PVRConfig
+        self.stuff = PVRStuff
 
     def handle(self, connection):
         connection.send_response(200)
@@ -24,4 +24,9 @@ class Stat(AceProxyPlugin):
         for i in self.stuff.clientcounter.clients:
             connection.wfile.write(str(i) + ' : ' + str(self.stuff.clientcounter.clients[i][0]) + ' ' +
                                    str(self.stuff.clientcounter.clients[i][1]) + '<br>')
+
+        connection.wfile.write('<h5>Running engines: ' + str(len(self.stuff.clientcounter.engines)) + '</h5>')
+
+
+
         connection.wfile.write('</body></html>')

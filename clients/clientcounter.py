@@ -7,11 +7,16 @@ class ClientCounter(object):
 
     def __init__(self):
         self.clients = dict()
-        self.aces = dict()
+        self.engines = dict()
         self.total = 0
 
     def get(self, id):
         return self.clients.get(id, (False,))[0]
+
+    def existsSameIP(self, id, ip):
+        for client in self.clients:
+            return id != client and ip in self.clients[client][1]
+        return False
 
     def add(self, id, ip):
         if self.clients.has_key(id):
@@ -37,19 +42,19 @@ class ClientCounter(object):
 
         return self.clients[id][0]
 
-    def getAce(self, id):
-        return self.aces.get(id, False)
+    def getEngine(self, id):
+        return self.engines.get(id, False)
 
-    def addAce(self, id, value):
-        if self.aces.has_key(id):
+    def addEngine(self, id, value):
+        if self.engines.has_key(id):
             return False
 
-        self.aces[id] = value
+        self.engines[id] = value
         return True
 
     def deleteAce(self, id):
-        if not self.aces.has_key(id):
+        if not self.engines.has_key(id):
             return False
 
-        del self.aces[id]
+        del self.engines[id]
         return True

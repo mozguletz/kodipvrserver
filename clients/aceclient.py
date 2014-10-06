@@ -1,10 +1,13 @@
+import json
+import logging
+import telnetlib
+
 import gevent
 from gevent.event import AsyncResult
 from gevent.event import Event
-import telnetlib
-import logging
-import json
+
 from acemessages import *
+from pvrclient import *
 
 
 class AceException(Exception):
@@ -15,7 +18,7 @@ class AceException(Exception):
     pass
 
 
-class AceClient(object):
+class AceClient(PVRClient):
 
     def __init__(self, host, port, connect_timeout=5, result_timeout=10):
         # Receive buffer
@@ -96,7 +99,7 @@ class AceClient(object):
         except EOFError as e:
             raise AceException("Write error! " + repr(e))
 
-    def aceInit(self, gender=AceConst.SEX_MALE, age=AceConst.AGE_18_24, product_key=None, pause_delay=0):
+    def init(self, gender=PVRConst.SEX_MALE, age=PVRConst.AGE_18_24, product_key=None, pause_delay=0):
         self._product_key = product_key
         self._gender = gender
         self._age = age
@@ -198,7 +201,7 @@ class AceClient(object):
                     if 'key=' in self._recvbuffer:
                         self._request_key_begin = self._recvbuffer.find('key=')
                         self._request_key = \
-                            self._recvbuffer[self._request_key_begin+4:self._request_key_begin+14]
+                            self._recvbuffer[self._request_key_begin + 4:self._request_key_begin + 14]
                         try:
                             self._write(AceMessage.request.READY_key(
                                 self._request_key, self._product_key))

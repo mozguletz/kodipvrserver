@@ -3,11 +3,10 @@ Minimal Ace Stream client library to use with HTTP Proxy
 '''
 
 import hashlib
-import platform
 import urllib2
 
 
-class AceConst(object):
+class PVRConst(object):
     APIVERSION = 3
 
     AGE_LT_13 = 1
@@ -39,8 +38,8 @@ class AceMessage(object):
 
     class request(object):
         # Requests (from client to acestream)
-       # API Version
-        HELLO = 'HELLOBG version=' + str(AceConst.APIVERSION)  # Hello
+        # API Version
+        HELLO = 'HELLOBG version=' + str(PVRConst.APIVERSION)  # Hello
         READY_nokey = 'READY'  # Sent when ready
         STOP = 'STOP'
         SHUTDOWN = 'SHUTDOWN'
@@ -54,7 +53,7 @@ class AceMessage(object):
         @staticmethod
         def LOADASYNC(command, request_id, params_dict):
             if command == 'TORRENT':
-                return 'LOADASYNC ' + str(request_id) + ' TORRENT ' + str(params_dict.get('url')) + ' ' +  \
+                return 'LOADASYNC ' + str(request_id) + ' TORRENT ' + str(params_dict.get('url')) + ' ' + \
                     str(params_dict.get('developer_id', '0')) + ' ' + \
                     str(params_dict.get('affiliate_id', '0')) + ' ' + \
                     str(params_dict.get('zone_id', '0'))

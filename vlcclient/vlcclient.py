@@ -2,11 +2,13 @@
 Minimal VLC VLM client for AceProxy. Client class.
 '''
 
-import gevent
-import gevent.event
-import gevent.coros
-import telnetlib
 import logging
+import telnetlib
+
+import gevent
+import gevent.coros
+import gevent.event
+
 from vlcmessages import *
 
 
@@ -25,8 +27,7 @@ class VlcClient(object):
     '''
 
     def __init__(
-        self, host='127.0.0.1', port=4212, password='admin', connect_timeout=5,
-            result_timeout=5, out_port=8081):
+        self, host='127.0.0.1', port=4212, password='admin', connect_timeout=5, result_timeout=5, out_port=8081):
         # Receive buffer
         self._recvbuffer = None
         # Output port
@@ -54,10 +55,9 @@ class VlcClient(object):
         # Making connection
         try:
             self._socket = telnetlib.Telnet(host, port, connect_timeout)
-            logger.debug("Successfully connected with VLC socket!")
+            logger.debug("Connected")
         except Exception as e:
-            raise VlcException(
-                "Socket creation error! VLC is not running? ERROR: " + repr(e))
+            raise VlcException("Socket creation error! VLC is not running? ERROR: " + repr(e))
 
         # Spawning recvData greenlet
         gevent.spawn(self._recvData)
@@ -111,8 +111,10 @@ class VlcClient(object):
     def _broadcast(self, brtype, stream_name, input=None, muxer='ts', pre_access=''):
         # Start/stop broadcast with VLC
         # Logger
-        if brtype == True:
+        if brtype == 1:
             broadcast = 'startBroadcast'
+        elif brtype == 2:
+            broadcast = 'show'
         else:
             broadcast = 'stopBroadcast'
 
@@ -122,9 +124,10 @@ class VlcClient(object):
         # Get lock
         self._resultlock.acquire()
         # Write message to VLC socket
-        if brtype == True:
-            self._write(VlcMessage.request.startBroadcast(
-                stream_name, input, self._out_port, muxer, pre_access))
+        if brtype == 1:
+            self._write(VlcMessage.request.startBroadcast(stream_name, input, self._out_port, muxer, pre_access))
+        elif brtype == 2:
+            self._write(VlcMessage.request.showBroadcast(stream_name))
         else:
             self._write(VlcMessage.request.stopBroadcast(stream_name))
 
@@ -140,16 +143,26 @@ class VlcClient(object):
         finally:
             self._resultlock.release()
 
-        if brtype == True:
+        if brtype == 1:
             logger.debug("Broadcast started")
+        elif brtype == 2:
+            show = {}
+            for line in self._recvbuffer.split('\n'):
+                if ':' in line:
+                    values = line.split(':', 1)
+                    show[values[0].strip()] = values[1].strip()
+            return show
         else:
             logger.debug("Broadcast stopped")
 
     def startBroadcast(self, stream_name, input, muxer='ts', pre_access=''):
-        return self._broadcast(True, stream_name, input, muxer, pre_access)
+        return self._broadcast(1, stream_name, input, muxer, pre_access)
 
     def stopBroadcast(self, stream_name):
-        return self._broadcast(False, stream_name)
+        return self._broadcast(0, stream_name)
+
+    def showBroadcast(self, stream_name):
+        return self._broadcast(2, stream_name)
 
     def _recvData(self):
         # Logger
@@ -212,3 +225,23 @@ class VlcClient(object):
                     # Broadcast stopped
                     logger.debug("Broadcast stopped")
                     self._result.set(True)
+                elif self._recvbuffer.startswith(VlcMessage.response.SHOW):
+                    # expecting mode data
+                    try:
+                        while True:
+                            if self._socket.sock_avail():
+                                line = self._socket.read_until("\n")
+                                self._recvbuffer = self._recvbuffer + line
+                            else:
+                                break
+                        # Stripping "> " from VLC
+                        self._recvbuffer = self._recvbuffer.lstrip("> ")
+                        self._result.set(True)
+                    except:
+                        # If something happened during read, abandon reader
+                        if not self._shuttingDown.isSet():
+                            logger.error("Exception at socket read")
+                            self._shuttingDown.set()
+                            return
+
+

@@ -20,6 +20,10 @@ class VlcMessage(object):
             return 'del "' + stream_name + '"'
 
         @staticmethod
+        def showBroadcast(stream_name):
+            return 'show "' + stream_name + '"'
+
+        @staticmethod
         def pauseBroadcast(stream_name):
             return 'control "' + stream_name + '" pause'
 
@@ -31,6 +35,7 @@ class VlcMessage(object):
         WRONGPASS = 'Wrong password'
         AUTHOK = 'Welcome, Master'
         BROADCASTEXISTS = 'Name already in use'
+        SHOW = 'show'
         SYNTAXERR = 'Wrong command syntax'
         STARTOK = 'new'
         STOPOK = 'del'
