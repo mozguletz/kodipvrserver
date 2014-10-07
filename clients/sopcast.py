@@ -1,10 +1,8 @@
-
 import logging
 import os.path
-import popen2
 import random
-import signal
-import sys
+import re
+import socket
 import threading
 import time
 
@@ -13,36 +11,40 @@ import gevent
 import clients
 
 
+class SopException(Exception):
+	'''
+    Exception from SopClient
+	'''
+	pass
+
+
 class Fork():
 	logger = logging.getLogger('sopcast_fork')
 
 	def __init__(self):
 		self.command = ''
 		self.args = ''
-		self.pid = 0
-		self.worker = ForkWorker()
+		self.port = 0
 
 	def launch_sop(self):
 		DEVNULL = open(os.devnull, 'wb')
 		args = "%s %s" % (self.command, self.args)
 		self.child = gevent.subprocess.Popen(args.split(), stdout=DEVNULL, stderr=DEVNULL)
 
-		time.sleep(1)
-
-		self.pid = self.child.pid
-		self.worker.set_pid(self.pid)
-		self.worker.start()
-		Fork.logger.info('Sopcast spawned with pid ' + str(self.pid))
+		self.monitor = SopMonitor(self.port)
+		self.monitor.start()
+		Fork.logger.info('Sopcast spawned with pid ' + str(self.child.pid))
 
 	def kill(self):
 		if self.is_running() == True:
 			try:
+				self.monitor.requestStop()
 				self.child.terminate()
-				time.sleep(.5)
-				if self.is_running() == True:
-					self.child.kill()
 			except OSError:
 				pass
+
+			time.sleep(1)
+
 			try:
 				if self.is_running() == True:
 					self.child.kill()
@@ -54,47 +56,72 @@ class Fork():
 			return False
 		return True
 
-class ForkWorker(threading.Thread):
-	logger = logging.getLogger('sopcast_fork_worker')
+	def buffer_loaded_progress(self):
+		return self.monitor.buffer_loaded_progress
 
-	def __init__(self):
+class SopMonitor(threading.Thread):
+	logger = logging.getLogger('SopMonitor')
+	INIT = "state\n\n\n\n\n\ns"
+	STATUS = "s\n"
+	CLOSE = "k\n"
+
+	def __init__(self, port):
 		threading.Thread.__init__(self)
+		self.port = port
 		self.loop = True
-		self.pid = 0
-		self.nblockAvailable = -1
-	def run(self):
-		while self.loop:
-			time.sleep(.1)
-			try:
-				os.waitpid(self.pid, os.WNOHANG)
-			except OSError as e:
-				self.loop = False
-			except Exception as e:
-				self.loop = False
-				sys.stderr.write("ForkWorker.run() %s\n" % repr(e))
-		# send terminate signal
-		try:
-			os.kill(self.pid, signal.SIGKILL)
-			sys.stderr.write("Fork.run() Sent sigterm, waiting for result")
-			os.wait()
-		except Exception:
-			pass
-		finally:
-			self.pid = 0
+		self.connected = False
+		self.buffer_loaded_progress = 0
 
-	def stop(self):
+	def run(self):
+		BUFFERSIZE = 128
+		while self.loop:
+			if not self.connected:
+				try:
+					self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+					self.sock.connect(('127.0.0.1', self.port))
+					self.connected = True
+					SopMonitor.logger.debug("Connected to Sopcast")
+					self.sock.send(SopMonitor.INIT)
+					self.sock.recv(BUFFERSIZE)
+				except:
+					self.connected = False
+
+			time.sleep(.5)
+
+			if self.connected:
+				try:
+					if self.sock.send(SopMonitor.STATUS) == 0:
+						raise
+					msg = ''
+					while msg.count("\n") == 0:
+						chunk = self.sock.recv(BUFFERSIZE)
+						if not chunk:
+							raise
+						msg = msg + chunk
+
+					stat = re.split('\\s+', msg)
+					if len(stat) > 0:
+						self.buffer_loaded_progress = int(stat[0])
+					time.sleep(1)
+				except:
+					self.buffer_loaded_progress = 0
+			else:
+				# Not connected
+				self.buffer_loaded_progress = -1
+		self.sock.close()
+
+	def requestStop(self):
 		self.loop = False
 
-	def set_pid(self, pid=0):
-		self.pid = pid
 
 class SopcastProcess(clients.PVRClient):
+	ENGINE_TYPE = 'sop'
+
 	logger = logging.getLogger('SopcastEngine')
 
 	def __init__(self):
 		self.f = Fork()
 		self.exe_name = None
-		self.loop = True
 
 	def __del__(self):
 		self.destroy()
@@ -102,11 +129,22 @@ class SopcastProcess(clients.PVRClient):
 	def destroy(self):
 		# Fork.logger.debug("Destroying client...")
 		self.f.kill()
+	def getType(self):
+		return SopcastProcess.ENGINE_TYPE
 
 	def getUrl(self, timeout=40):
-		# TODO the logic to retreive the url only when sopcast buffer is more then 10%
-		# time.sleep(10)
-		return self.url;
+		seconds = timeout
+		while seconds > 0:
+			time.sleep(1)
+			seconds = seconds - 1
+
+			buff = self.f.buffer_loaded_progress()
+			if buff > 20:
+				return self.url;
+			elif buff == -1:
+				SopcastProcess.logger.debug("Not connected")
+		raise SopException("getURL timeout!")
+
 
 	def get_sp_sc_name(self):
 		if self.exe_name == None:
@@ -118,7 +156,7 @@ class SopcastProcess(clients.PVRClient):
 					return self.exe_name
 
 			if self.exe_name == None:
-				raise Exception("ForkSOP", "Critical error, sp-sc-auth not found. Please install sp-auth!")
+				raise SopException("ForkSOP", "Critical error, sp-sc-auth not found. Please install sp-auth!")
 		else:
 			return self.exe_name
 
@@ -128,9 +166,10 @@ class SopcastProcess(clients.PVRClient):
 
 		if sop_address == None or inbound_port == None or outbound_port == None:
 			Fork.logger.error("invalid call to fork_sop")
-			raise RuntimeError('invalid call to fork_sop')
+			raise SopException('invalid call to fork_sop')
 		else:
 			self.f.args = '%s %s %s' % (sop_address, inbound_port, outbound_port)
+			self.f.port = outbound_port
 
 		# Fork.logger.error("launching sopcast")
 		self.f.launch_sop()
@@ -152,6 +191,10 @@ class SopcastProcess(clients.PVRClient):
 
 	def getPlayEvent(self, timeout=None):
 		# self._resumeevent.wait(timeout=timeout)
+		# TODO
 		time.sleep(random.uniform(.0, .2))
 		return
+
+	def buffer_loaded_progress(self):
+		return self.f.buffer_loaded_progress()
 

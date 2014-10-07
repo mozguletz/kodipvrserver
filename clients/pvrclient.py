@@ -16,3 +16,6 @@ class PVRClient(object):
 
     def getPlayEvent(self, timeout=None):
         pass
+
+    def getType(self):
+        pass

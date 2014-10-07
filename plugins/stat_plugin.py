@@ -17,16 +17,21 @@ class Stat(PVRProxyPlugin):
         connection.send_response(200)
         connection.send_header('Content-type', 'text/html')
         connection.end_headers()
-        connection.wfile.write(
-            '<html><body><h4>Connected clients: ' + str(self.stuff.clientcounter.total) + '</h4>')
-        connection.wfile.write(
-            '<h5>Concurrent connections limit: ' + str(self.config.maxconns) + '</h5>')
-        for i in self.stuff.clientcounter.clients:
-            connection.wfile.write(str(i) + ' : ' + str(self.stuff.clientcounter.clients[i][0]) + ' ' +
-                                   str(self.stuff.clientcounter.clients[i][1]) + '<br>')
+        connection.wfile.write('<html><body>')
+        connection.wfile.write('<h4>Connected clients: ' + str(self.stuff.clientcounter.total) + '</h4>')
+        connection.wfile.write('<h5>Concurrent connections limit: ' + str(self.config.maxconns) + '</h5>')
 
-        connection.wfile.write('<h5>Running engines: ' + str(len(self.stuff.clientcounter.engines)) + '</h5>')
+        for engine in self.stuff.clientcounter.engines:
 
+            connection.wfile.write(str(engine))
+            if self.stuff.clientcounter.engines[engine].getType() == 'sop':
+                buffering = self.stuff.clientcounter.engines[engine].buffer_loaded_progress()
+                connection.wfile.write(' (Buffering %d%%)' % buffering if buffering != -1 else ' (Connecting...)')
 
+            connection.wfile.write(' : ')
 
+            if self.stuff.clientcounter.clients.has_key(engine):
+                connection.wfile.write(str(self.stuff.clientcounter.clients[engine][0]) + ' ' + str(self.stuff.clientcounter.clients[engine][1]) + '<br>')
+            else:
+                connection.wfile.write('No clients, waiting to be destroyed')
         connection.wfile.write('</body></html>')

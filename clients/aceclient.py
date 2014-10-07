@@ -19,6 +19,7 @@ class AceException(Exception):
 
 
 class AceClient(PVRClient):
+    ENGINE_TYPE = 'ace'
 
     def __init__(self, host, port, connect_timeout=5, result_timeout=10):
         # Receive buffer
@@ -98,6 +99,9 @@ class AceClient(PVRClient):
             self._socket.write(message + "\r\n")
         except EOFError as e:
             raise AceException("Write error! " + repr(e))
+
+    def getType(self):
+        return AceClient.ENGINE_TYPE
 
     def init(self, gender=PVRConst.SEX_MALE, age=PVRConst.AGE_18_24, product_key=None, pause_delay=0):
         self._product_key = product_key

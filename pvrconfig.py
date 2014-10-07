@@ -96,7 +96,7 @@ class PVRConfig(object):
 
     # VLC cmd line (use `--file-logging --logfile=filepath` to write log)
     # Please use the full path to executable for Windows, for example - C:\\Program Files\\VideoLAN\\VLC\\vlc.exe
-    vlccmd = "vlc -I telnet --clock-jitter 0 --network-caching 200 --sout-mux-caching 200 --telnet-password admin --telnet-port 4212"
+    vlccmd = "vlc -I telnet --clock-jitter 0 --network-caching 500 --sout-mux-caching 500 --telnet-password admin --telnet-port 4212"
 
     # VLC host
     vlchost = '127.0.0.1'

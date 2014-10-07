@@ -22,7 +22,6 @@ import urllib2
 import gevent.monkey
 
 import clients
-from clients.Sopcast import SopcastProcess
 from clients.clientcounter import ClientCounter
 import plugins.modules.ipaddr as ipaddr
 from pvrconfig import PVRConfig
@@ -312,13 +311,9 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                     return
             elif self.engine_type == 'sop':
                 try:
-                    self.engine = SopcastProcess()
+                    self.engine = clients.SopcastProcess()
                     self.engine.fork_sop(urllib2.unquote(self.path_unquoted), str(randrange(1025, 34999, 1)), str(randrange(35000, 65350, 1)))
                     logger.info("SopClient created")
-                    time.sleep(10)
-                    if not self.engine.is_running():
-                        raise Exception('Sopcast terminated. Invalid channel')
-                    logger.info("SopClient video should be ok now")
                 except Exception as e:
                     logger.error("SopClient create exception: " + repr(e))
                     PVRStuff.clientcounter.delete(self.client_id, self.clientip)
@@ -443,7 +438,7 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             # self.hanggreenlet.join()
             # logger.debug("Request handler finished")
 
-        except (clients.AceException, vlcclient.VlcException, urllib2.URLError) as e:
+        except (clients.AceException, clients.SopException, vlcclient.VlcException, urllib2.URLError) as e:
             logger.error("Exception: " + repr(e))
             self.errorhappened = True
             self.dieWithError()
@@ -472,7 +467,7 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                         PVRStuff.vlcclient.stopBroadcast(self.vlcid)
                     except:
                         pass
-                PVRStuff.clientcounter.deleteAce(self.client_id)
+                PVRStuff.clientcounter.deleteEngine(self.client_id)
                 self.engine.destroy()
 
 

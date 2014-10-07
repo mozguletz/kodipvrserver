@@ -52,7 +52,7 @@ class ClientCounter(object):
         self.engines[id] = value
         return True
 
-    def deleteAce(self, id):
+    def deleteEngine(self, id):
         if not self.engines.has_key(id):
             return False
 
