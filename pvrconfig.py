@@ -96,7 +96,7 @@ class PVRConfig(object):
 
     # VLC cmd line (use `--file-logging --logfile=filepath` to write log)
     # Please use the full path to executable for Windows, for example - C:\\Program Files\\VideoLAN\\VLC\\vlc.exe
-    vlccmd = "vlc -I telnet --clock-jitter 0 --network-caching 500 --sout-mux-caching 500 --telnet-password admin --telnet-port 4212"
+    vlccmd = "vlc -I telnet --clock-jitter 0 --network-caching 1000 --sout-mux-caching 500 --http-reconnect --telnet-password admin --telnet-port 4212 -v --file-logging --logfile=vlc.log"
 
     # VLC host
     vlchost = '127.0.0.1'
@@ -114,6 +114,12 @@ class PVRConfig(object):
     # You can add transcode options here
     # Something like #transcode{acodec=mpga,ab=128,channels=2,samplerate=44100}
     vlcpreaccess = ''
+
+    # Pre-access (HTTP Live Stream) VLC parameters
+    # You can add transcode options here
+    # Something like #transcode{acodec=mpga,ab=128,channels=2,samplerate=44100}
+    # vlchlspreaccess = '#transcode{vcodec=mp4v,acodec=mpga,vb=800,ab=128,channels=2,samplerate=44100,deinterlace}'
+    vlchlspreaccess = '#transcode{acodec=mpga,ab=128,channels=2,samplerate=44100}'
 
     # VLC muxer. You probably want one of these streamable muxers:
     # ts, asf, flv, ogg, mkv
@@ -164,7 +170,6 @@ class PVRConfig(object):
     # We send them 200 OK and MPEG MIME-type right after connection has been initiated
     fakeheaderuas = ('HLS Client/2.0 (compatible; LG NetCast.TV-2012)',
                      'Mozilla/5.0 (DirectFB; Linux armv7l) AppleWebKit/534.26+ (KHTML, like Gecko) Version/5.0 Safari/534.26+ LG Browser/5.00.00(+mouse+3D+SCREEN+TUNER; LGE; 42LM670T-ZA; 04.41.03; 0x00000001;); LG NetCast.TV-2012 0',
-                     'XBMC/13.2 (Linux; Fedora 20 (Heisenbug); 3.16.0-1.playground.fc22.x86_64 x86_64; http://xbmc.org)',
                      'XBMC/13.2 Git:20140817-0f3db05 (Linux; Android; 3.4.67 armv7l; http://xbmc.org)'
                      )
     # Platform detection, you probably should not touch this

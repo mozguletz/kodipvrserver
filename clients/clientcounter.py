@@ -1,7 +1,7 @@
 '''
 Simple Client Counter for VLC VLM
 '''
-
+import threading
 
 class ClientCounter(object):
 
@@ -53,8 +53,16 @@ class ClientCounter(object):
         return True
 
     def deleteEngine(self, id):
-        if not self.engines.has_key(id):
-            return False
+        self.engines.pop(id, None)
+        return True
 
-        del self.engines[id]
+    def __deleteEngineOnTimeout(self, id):
+        if not self.get(id):
+            engine = self.engines.pop(id, None)
+            if engine:
+                engine.destroy()
+                del engine
+
+    def deleteEngineOnTimeout(self, id, timeout=0):
+        threading.Timer(timeout, self.__deleteEngineOnTimeout, [id], {}).start()
         return True

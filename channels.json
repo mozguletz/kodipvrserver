@@ -9,7 +9,8 @@
 					{"name": "Sopcast", 			"group":"Sopcast", 		"url":"sop://broker.sopcast.com:3912/channelID_here", 		"tgv-id":"",	 	"tgv-name":"", 		"tvg-logo":""},
 					{"name": "Torrent File", 		"group":"Torrent File",		"url":"http://blabla.bla/bla.torrent", 		"tgv-id":"",	 	"tgv-name":"", 		"tvg-logo":""},
 					{"name": "Torrent TV", 			"group":"Torrent TV", 		"url":"acestream://[40chars]", 		"tgv-id":"",	 	"tgv-name":"", 		"tvg-logo":""},			
-					{"name": "Acelive", 			"group":"Acelive", 		"url":"http://blabla.bla/bl.acelive", 		"tgv-id":"",	 	"tgv-name":"", 		"tvg-logo":""}
+					{"name": "Acelive", 			"group":"Acelive", 		"url":"http://blabla.bla/bla.acelive", 		"tgv-id":"",	 	"tgv-name":"", 		"tvg-logo":""},
+					{"name": "HLS", 			"group":"HLS", 		"url":"http://blabla.bla/bla.m3u8", 		"tgv-id":"",	 	"tgv-name":"", 		"tvg-logo":""}
 			]			
 	}
 }

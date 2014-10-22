@@ -21,11 +21,11 @@ import urllib2
 
 import gevent.monkey
 
+from clients import vlcclient
 import clients
 from clients.clientcounter import ClientCounter
 import plugins.modules.ipaddr as ipaddr
 from pvrconfig import PVRConfig
-import vlcclient
 
 
 # Monkeypatching and all the stuff
@@ -68,10 +68,13 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         Close connection with error
         '''
         logging.warning("Dying with error")
-        if self.clientconnected:
-            self.send_error(errorcode)
-            self.end_headers()
-            self.closeConnection()
+        try:
+            if self.clientconnected:
+                self.send_error(errorcode)
+                self.end_headers()
+                self.closeConnection()
+        except:
+            pass
 
     def proxyReadWrite(self):
         '''
@@ -107,7 +110,7 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                     logger.debug("Client is not connected, terminating")
                     break
 
-                data = self.video.read(65500)
+                data = self.video.read(65535)
                 if data and self.clientconnected:
                     self.wfile.write(data)
                 else:
@@ -163,7 +166,9 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         try:
             # If first parameter is 'pid' or 'torrent' or it should be handled
             # by plugin
-            if not (self.reqtype in ('pid', 'torrent', 'sop') or self.reqtype in PVRStuff.pluginshandlers):
+            if not (self.reqtype in (clients.SopcastProcess.ENGINE_TYPE, clients.HLSClient.ENGINE_TYPE)
+				or self.reqtype in clients.AceClient.ENGINE_TYPE
+				or self.reqtype in PVRStuff.pluginshandlers):
                 self.dieWithError(400)  # 400 Bad Request
                 raise Exception('Not valid handler')
         except IndexError:
@@ -184,10 +189,12 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             raise Exception('Not a valid handler video stream')
 
     def set_engine_type(self):
-        if self.reqtype == 'sop':
-            self.engine_type = 'sop'
-        else:
-            self.engine_type = 'ace'
+        if self.reqtype in clients.SopcastProcess.ENGINE_TYPE:
+            self.engine_type = clients.SopcastProcess.ENGINE_TYPE
+        elif self.reqtype in clients.AceClient.ENGINE_TYPE:
+            self.engine_type = clients.AceClient.ENGINE_TYPE
+        elif self.reqtype in clients.HLSClient.ENGINE_TYPE:
+            self.engine_type = clients.HLSClient.ENGINE_TYPE
 
     def handle_in_plugin(self):
         logger = logging.getLogger('http_HTTPHandler.handle_in_plugin')
@@ -220,6 +227,8 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         self.requestgreenlet = gevent.getcurrent()
         # Connected client IP address
         self.clientip = self.request.getpeername()[0]
+		# Create broadcast?
+        self.create_broadcast = True
 
         self.splittedpath = self.path.split('/')
         self.reqtype = self.splittedpath[1].lower()
@@ -228,10 +237,10 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
         # perform IP and URL validation
         try:
-        	self.perform_validation()
+            self.perform_validation()
         except Exception as e:
-			logger.error(repr(e))
-			return
+            logger.error(repr(e))
+            return
 
         self.set_engine_type()
 
@@ -296,29 +305,36 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             return
 
         if shouldcreateace:
-            if self.engine_type == 'ace':
+            if self.engine_type == clients.AceClient.ENGINE_TYPE:
             # If we are the only client, create AceClient
                 try:
-                	self.engine = clients.AceClient(PVRConfig.acehost,
+                    self.engine = clients.AceClient(PVRStuff.vlcclient,
+													PVRConfig.acehost,
                                                     PVRConfig.aceport,
                                                     connect_timeout=PVRConfig.aceconntimeout,
                                                     result_timeout=PVRConfig.aceresulttimeout)
-                	logger.info("AceClient created")
+                    logger.info("AceClient created")
                 except clients.AceException as e:
                     logger.error("AceClient create exception: " + repr(e))
                     PVRStuff.clientcounter.delete(self.client_id, self.clientip)
                     self.dieWithError(502)  # 502 Bad Gateway
                     return
-            elif self.engine_type == 'sop':
+            elif self.engine_type == clients.SopcastProcess.ENGINE_TYPE:
                 try:
-                    self.engine = clients.SopcastProcess()
-                    self.engine.fork_sop(urllib2.unquote(self.path_unquoted), str(randrange(1025, 34999, 1)), str(randrange(35000, 65350, 1)))
+                    self.engine = clients.SopcastProcess(PVRStuff.vlcclient)
                     logger.info("SopClient created")
                 except Exception as e:
                     logger.error("SopClient create exception: " + repr(e))
                     PVRStuff.clientcounter.delete(self.client_id, self.clientip)
                     self.dieWithError(502)  # 502 Bad Gateway
                     return
+            elif self.engine_type == clients.HLSClient.ENGINE_TYPE:
+                try:
+                    self.engine = clients.HLSClient(PVRStuff.vlcclient)
+                    logger.info("HLSClient created")
+                except Exception as e:
+                    logger.error("HLS engine: " + repr(e))
+                    pass
             else:
                 logger.error("Unknown engine: " + repr(e))
                 PVRStuff.clientcounter.delete(self.client_id, self.clientip)
@@ -343,10 +359,11 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             logger.debug("hangDetector spawned")
             gevent.sleep()
 
-            if self.engine_type == 'ace':
+            if self.engine_type == clients.AceClient.ENGINE_TYPE:
                 # Initializing AceClient
                 if shouldcreateace:
-                    self.engine.init(gender=PVRConfig.acesex,
+                    self.engine.init(self.vlcid,
+									    gender=PVRConfig.acesex,
                                         age=PVRConfig.aceage,
                                         product_key=PVRConfig.acekey,
                                         pause_delay=PVRConfig.videopausedelay)
@@ -361,12 +378,19 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
                 # Getting URL
                 self.url = self.engine.getUrl(PVRConfig.videotimeout)
-
                 # Rewriting host for remote Ace Stream Engine
                 self.url = self.url.replace('127.0.0.1', PVRConfig.acehost)
-            elif self.engine_type == 'sop':
+            elif self.engine_type == clients.SopcastProcess.ENGINE_TYPE:
+                if shouldcreateace:
+                    self.engine.init(self.vlcid, self.path_unquoted, str(randrange(1025, 34999, 1)), str(randrange(35000, 65350, 1)))
+
                 # Getting URL
-                logger.debug("Getting the url ")
+                self.url = self.engine.getUrl(PVRConfig.videotimeout)
+            elif self.engine_type == clients.HLSClient.ENGINE_TYPE:
+                if shouldcreateace:
+                    self.engine.init(self.vlcid, self.path_unquoted)
+
+                # Getting URL
                 self.url = self.engine.getUrl(PVRConfig.videotimeout)
             else:
                 logger.error("Unknown engine: " + repr(e))
@@ -377,8 +401,8 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.errorhappened = False
             logger.debug("Got url " + self.url)
 
-
-            if PVRConfig.vlcuse and shouldcreateace:
+            self.create_broadcast = self.engine_type != clients.HLSClient.ENGINE_TYPE
+            if PVRConfig.vlcuse and shouldcreateace and self.create_broadcast:
                 # (shouldcreateace or not PVRStuff.vlcclient.showBroadcast(self.vlcid).get('enabled', False)):  # or (PVRStuff.clientcounter.get(self.client_id) == 1):
                 # If using VLC, add this url to VLC
                 # Force ffmpeg demuxing if set in config
@@ -404,7 +428,18 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             for key in self.headers.dict:
                 self.video.add_header(key, self.headers.dict[key])
 
-            self.video = urllib2.urlopen(self.video)
+            count = 10
+            while count >= 0:
+            	count = count - 1
+                time.sleep(1)
+                try:
+                    self.video = urllib2.urlopen(self.video)
+                    logger.debug("Opened video stream")
+                    break
+                except:
+                    pass
+
+
 
             # Sending video stream headers to client
             if not self.headerssent:
@@ -435,8 +470,8 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             gevent.sleep()
 
             # Waiting until hangDetector is joined
-            # self.hanggreenlet.join()
-            # logger.debug("Request handler finished")
+            self.hanggreenlet.join()
+            logger.debug("Request handler finished")
 
         except (clients.AceException, clients.SopException, vlcclient.VlcException, urllib2.URLError) as e:
             logger.error("Exception: " + repr(e))
@@ -453,22 +488,9 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         finally:
             logger.debug("END REQUEST")
             PVRStuff.clientcounter.delete(self.client_id, self.clientip)
-            if not self.errorhappened and not PVRStuff.clientcounter.get(self.client_id):
-                logger.debug("Sleeping until a different URL or for max " + str(PVRConfig.videodestroydelay) + " seconds")
-                for seconds in range(0, PVRConfig.videodestroydelay * 2):
-                    gevent.sleep(0.5)
-                    if PVRStuff.clientcounter.existsSameIP(self.client_id, self.clientip):
-                        break
-                # If no error happened and we are the only client
             if not PVRStuff.clientcounter.get(self.client_id):
-                logger.debug("That was the last client, destroying the engine")
-                if PVRConfig.vlcuse:
-                    try:
-                        PVRStuff.vlcclient.stopBroadcast(self.vlcid)
-                    except:
-                        pass
-                PVRStuff.clientcounter.deleteEngine(self.client_id)
-                self.engine.destroy()
+                PVRStuff.clientcounter.deleteEngineOnTimeout(self.client_id, PVRConfig.videodestroydelay)
+                logger.debug("Scheduling engine autodestroy in " + str(PVRConfig.videodestroydelay) + " seconds")
 
 
 

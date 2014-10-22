@@ -54,8 +54,13 @@ class PlaylistGenerator(object):
             item['tvg'] = item.get('tvg', '') if item.get('tvg') else item.get('name')  # .replace(' ', '_')
 
             if  item.get('transit', True):
-                # For .acelive and .torrent
-                item['url'] = re.sub('^(http.+)$', lambda match: 'http://' + hostport + '/torrent/' + urllib2.quote(match.group(0), '') + '/stream.mp4', item['url'], flags=re.MULTILINE)
+                if item['url'].endswith('.m3u8'):
+                    # For HLS
+                    item['url'] = re.sub('^(http.+)$', lambda match: 'http://' + hostport + '/hls/' + urllib2.quote(match.group(0), '') + '/stream.mp4', item['url'], flags=re.MULTILINE)
+                else:
+                    # For .acelive and .torrent
+                    item['url'] = re.sub('^(http.+)$', lambda match: 'http://' + hostport + '/torrent/' + urllib2.quote(match.group(0), '') + '/stream.mp4', item['url'], flags=re.MULTILINE)
+
                 # For Sopcast
                 item['url'] = re.sub('^(sop.+)$', lambda match: 'http://' + hostport + '/sop/' + urllib2.quote(match.group(0), '') + '/tv.asf', item['url'], flags=re.MULTILINE)
                 # For PIDs

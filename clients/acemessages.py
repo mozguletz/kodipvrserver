@@ -3,7 +3,6 @@ Minimal Ace Stream client library to use with HTTP Proxy
 '''
 
 import hashlib
-import urllib2
 
 
 class PVRConst(object):

@@ -1,6 +1,7 @@
 import json
 import logging
 import telnetlib
+import urllib2
 
 import gevent
 from gevent.event import AsyncResult
@@ -19,9 +20,9 @@ class AceException(Exception):
 
 
 class AceClient(PVRClient):
-    ENGINE_TYPE = 'ace'
+    ENGINE_TYPE = ('pid', 'torrent')
 
-    def __init__(self, host, port, connect_timeout=5, result_timeout=10):
+    def __init__(self, vlc_client, host, port, connect_timeout=5, result_timeout=10):
         # Receive buffer
         self._recvbuffer = None
         # Stream URL
@@ -52,7 +53,7 @@ class AceClient(PVRClient):
 
         # Logger
         logger = logging.getLogger('AceClient_init')
-
+        self.vlc_client = vlc_client
         try:
             self._socket = telnetlib.Telnet(host, port, connect_timeout)
             logger.info("Successfully connected with Ace!")
@@ -86,6 +87,7 @@ class AceClient(PVRClient):
         # Trying to disconnect
         try:
             logger.debug("Destroying client...")
+            self.vlc_client.stopBroadcast(self.stream_name)
             self._shuttingDown.set()
             self._write(AceMessage.request.SHUTDOWN)
         except:
@@ -103,10 +105,11 @@ class AceClient(PVRClient):
     def getType(self):
         return AceClient.ENGINE_TYPE
 
-    def init(self, gender=PVRConst.SEX_MALE, age=PVRConst.AGE_18_24, product_key=None, pause_delay=0):
+    def init(self, stream_name, gender=PVRConst.SEX_MALE, age=PVRConst.AGE_18_24, product_key=None, pause_delay=0):
         self._product_key = product_key
         self._gender = gender
         self._age = age
+        self.stream_name = stream_name
         # PAUSE/RESUME delay
         self._pausedelay = pause_delay
 

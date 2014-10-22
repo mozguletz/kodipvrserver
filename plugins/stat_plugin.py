@@ -33,5 +33,5 @@ class Stat(PVRProxyPlugin):
             if self.stuff.clientcounter.clients.has_key(engine):
                 connection.wfile.write(str(self.stuff.clientcounter.clients[engine][0]) + ' ' + str(self.stuff.clientcounter.clients[engine][1]) + '<br>')
             else:
-                connection.wfile.write('No clients, waiting to be destroyed')
+                connection.wfile.write('No clients, waiting to be destroyed<br>')
         connection.wfile.write('</body></html>')

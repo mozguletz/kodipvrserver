@@ -19,7 +19,7 @@ class SopException(Exception):
 
 
 class Fork():
-	logger = logging.getLogger('sopcast_fork')
+	logger = logging.getLogger('Sopcast_Fork')
 
 	def __init__(self):
 		self.command = ''
@@ -119,8 +119,9 @@ class SopcastProcess(clients.PVRClient):
 
 	logger = logging.getLogger('SopcastEngine')
 
-	def __init__(self):
+	def __init__(self, vlc_client):
 		self.f = Fork()
+		self.vlc_client = vlc_client
 		self.exe_name = None
 
 	def __del__(self):
@@ -128,6 +129,7 @@ class SopcastProcess(clients.PVRClient):
 
 	def destroy(self):
 		# Fork.logger.debug("Destroying client...")
+		self.vlc_client.stopBroadcast(self.stream_name)
 		self.f.kill()
 	def getType(self):
 		return SopcastProcess.ENGINE_TYPE
@@ -142,6 +144,8 @@ class SopcastProcess(clients.PVRClient):
 			if buff > 20:
 				return self.url;
 			elif buff == -1:
+				if not self.is_running():
+					raise SopException("Invalid channel. Sopcast process terminated.")
 				SopcastProcess.logger.debug("Not connected")
 		raise SopException("getURL timeout!")
 
@@ -160,22 +164,21 @@ class SopcastProcess(clients.PVRClient):
 		else:
 			return self.exe_name
 
-	def fork_sop(self, sop_address, inbound_port, outbound_port):
+	def init(self, stream_name, sop_address, inbound_port, outbound_port):
 		self.url = "http://127.0.0.1:%s/tv.asf" % str(outbound_port)
 		self.f.command = self.get_sp_sc_name()
-
+		self.stream_name = stream_name
 		if sop_address == None or inbound_port == None or outbound_port == None:
-			Fork.logger.error("invalid call to fork_sop")
+			SopcastProcess.logger.error("invalid call to fork_sop")
 			raise SopException('invalid call to fork_sop')
 		else:
 			self.f.args = '%s %s %s' % (sop_address, inbound_port, outbound_port)
 			self.f.port = outbound_port
 
-		# Fork.logger.error("launching sopcast")
+		# SopcastProcess.logger.error("launching sopcast")
 		self.f.launch_sop()
 
-		SopcastProcess.logger.debug("Sopcast channel  url: " + sop_address)
-		SopcastProcess.logger.debug("Sopcast video stream: " + self.url)
+		SopcastProcess.logger.debug("Sopcast url: " + sop_address + "  video stream: " + self.url)
 
 
 	def quit_sop(self):

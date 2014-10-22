@@ -1,14 +1,12 @@
-from acemessages import PVRConst
-
 class PVRClient(object):
 
-    def __init__(self, host, port, connect_timeout=5, result_timeout=10):
+    def __init__(self):
         pass
 
     def destroy(self):
         pass
 
-    def init(self, gender=PVRConst.SEX_MALE, age=PVRConst.AGE_18_24, product_key=None, pause_delay=0):
+    def init(self):
         pass
 
     def getUrl(self, timeout=40):

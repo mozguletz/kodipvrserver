@@ -9,7 +9,7 @@ import gevent
 import gevent.coros
 import gevent.event
 
-from vlcmessages import *
+from vlcmessages import VlcMessage
 
 
 class VlcException(Exception):
@@ -27,7 +27,7 @@ class VlcClient(object):
     '''
 
     def __init__(
-        self, host='127.0.0.1', port=4212, password='admin', connect_timeout=5, result_timeout=5, out_port=8081):
+        self, host='127.0.0.1', port=4212, password='admin', connect_timeout=5, result_timeout=20, out_port=8081):
         # Receive buffer
         self._recvbuffer = None
         # Output port
@@ -74,11 +74,11 @@ class VlcClient(object):
             logger.error(errmsg)
             raise VlcException(errmsg)
 
-    def __del__(self):
+    def __del__(self, terminate_vlc=True):
         # Destructor just calls destroy() method
-        self.destroy()
+        self.destroy(terminate_vlc)
 
-    def destroy(self):
+    def destroy(self, terminate_vlc=True):
         # Logger
         logger = logging.getLogger("VlcClient_destroy")
 
@@ -90,7 +90,11 @@ class VlcClient(object):
         if self._socket:
             try:
                 logger.debug("Destroying VlcClient...")
-                self._write(VlcMessage.request.SHUTDOWN)
+                if terminate_vlc:
+                    self._write(VlcMessage.request.SHUTDOWN)
+                else:
+                    self._write(VlcMessage.request.QUIT)
+
                 # Set shuttingDown flag for recvData
                 self._shuttingDown.set()
             except:
@@ -101,7 +105,7 @@ class VlcClient(object):
         # Return if in the middle of destroying
         if self._shuttingDown.isSet():
             return
-
+        logger = logging.getLogger('VlcClient_write')
         try:
             # Write message
             self._socket.write(message + "\r\n")
@@ -129,7 +133,8 @@ class VlcClient(object):
         elif brtype == 2:
             self._write(VlcMessage.request.showBroadcast(stream_name))
         else:
-            self._write(VlcMessage.request.stopBroadcast(stream_name))
+            # self._write(VlcMessage.request.stopBroadcast(stream_name))
+            self._write(VlcMessage.request.delBroadcast(stream_name))
 
         try:
             gevent.sleep()

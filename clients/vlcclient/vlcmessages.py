@@ -7,6 +7,7 @@ class VlcMessage(object):
 
     class request(object):
         SHUTDOWN = 'shutdown'
+        QUIT = 'quit'
 
         @staticmethod
         def startBroadcast(stream_name, input, out_port, muxer='ts', pre_access=''):
@@ -17,6 +18,10 @@ class VlcMessage(object):
 
         @staticmethod
         def stopBroadcast(stream_name):
+            return 'stop "' + stream_name + '"'
+
+        @staticmethod
+        def delBroadcast(stream_name):
             return 'del "' + stream_name + '"'
 
         @staticmethod
